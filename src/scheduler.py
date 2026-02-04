@@ -1,29 +1,35 @@
+import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from telegram import Bot
 
 from config import (
-    TELEGRAM_CHAT_ID,
     DIGEST_COUNT,
     DIGEST_ENABLED,
     DAILY_QUOTE_ENABLED,
     get_digest_schedule,
     get_daily_quote_schedule,
 )
-from src.database import get_random_quotes, get_quote_count
+from src.database import (
+    get_random_quotes,
+    get_quote_count,
+    get_users_for_digest,
+    get_users_for_daily_quote,
+)
 from src.bot import format_quote
 
+logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler()
 
 
-async def send_digest(bot: Bot):
-    """Send the weekly digest to the user."""
-    quotes = await get_random_quotes(DIGEST_COUNT)
-    total = await get_quote_count()
+async def send_digest_to_user(bot: Bot, user_id: int):
+    """Send the weekly digest to a specific user."""
+    quotes = await get_random_quotes(user_id, DIGEST_COUNT)
+    total = await get_quote_count(user_id)
 
     if not quotes:
         await bot.send_message(
-            chat_id=TELEGRAM_CHAT_ID,
+            chat_id=user_id,
             text="Your Weekly Quote Digest\n\nNo quotes saved yet. Start sending me quotes to build your collection!"
         )
         return
@@ -39,12 +45,12 @@ async def send_digest(bot: Bot):
     if len(message) > 4000:
         message = message[:3997] + "..."
 
-    await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+    await bot.send_message(chat_id=user_id, text=message)
 
 
-async def send_daily_quote(bot: Bot):
-    """Send a single quote of the day."""
-    quotes = await get_random_quotes(1)
+async def send_daily_quote_to_user(bot: Bot, user_id: int):
+    """Send a single quote of the day to a specific user."""
+    quotes = await get_random_quotes(user_id, 1)
 
     if not quotes:
         return  # Don't send anything if no quotes saved
@@ -52,7 +58,31 @@ async def send_daily_quote(bot: Bot):
     quote = quotes[0]
     message = f"Quote of the Day\n\n{format_quote(quote)}"
 
-    await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+    await bot.send_message(chat_id=user_id, text=message)
+
+
+async def send_digest_to_all(bot: Bot):
+    """Send the weekly digest to all users who have it enabled."""
+    users = await get_users_for_digest()
+    logger.info(f"Sending weekly digest to {len(users)} users")
+
+    for user in users:
+        try:
+            await send_digest_to_user(bot, user["chat_id"])
+        except Exception as e:
+            logger.error(f"Failed to send digest to user {user['chat_id']}: {e}")
+
+
+async def send_daily_quote_to_all(bot: Bot):
+    """Send the daily quote to all users who have it enabled."""
+    users = await get_users_for_daily_quote()
+    logger.info(f"Sending daily quote to {len(users)} users")
+
+    for user in users:
+        try:
+            await send_daily_quote_to_user(bot, user["chat_id"])
+        except Exception as e:
+            logger.error(f"Failed to send daily quote to user {user['chat_id']}: {e}")
 
 
 def setup_scheduler(bot: Bot):
@@ -62,7 +92,7 @@ def setup_scheduler(bot: Bot):
     if DIGEST_ENABLED:
         schedule = get_digest_schedule()
         scheduler.add_job(
-            send_digest,
+            send_digest_to_all,
             trigger="cron",
             day_of_week=schedule["day_of_week"],
             hour=schedule["hour"],
@@ -71,12 +101,13 @@ def setup_scheduler(bot: Bot):
             id="weekly_digest",
             replace_existing=True,
         )
+        logger.info(f"Weekly digest scheduled for day {schedule['day_of_week']} at {schedule['hour']}:{schedule['minute']}")
 
     # Daily quote of the day
     if DAILY_QUOTE_ENABLED:
         daily_schedule = get_daily_quote_schedule()
         scheduler.add_job(
-            send_daily_quote,
+            send_daily_quote_to_all,
             trigger="cron",
             hour=daily_schedule["hour"],
             minute=daily_schedule["minute"],
@@ -84,5 +115,6 @@ def setup_scheduler(bot: Bot):
             id="daily_quote",
             replace_existing=True,
         )
+        logger.info(f"Daily quote scheduled at {daily_schedule['hour']}:{daily_schedule['minute']}")
 
     scheduler.start()

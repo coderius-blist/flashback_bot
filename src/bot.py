@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -7,8 +8,9 @@ from telegram.ext import (
     filters,
 )
 
-from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+from config import TELEGRAM_BOT_TOKEN
 from src.database import (
+    register_user,
     save_quote,
     delete_quote,
     get_quote_by_id,
@@ -28,30 +30,43 @@ from src.database import (
 from src.parser import parse_message
 from src.metadata import fetch_metadata
 
+# How long to remember a pending URL (in minutes)
+PENDING_URL_TIMEOUT = 5
 
-def is_authorized(update: Update) -> bool:
-    """Check if the message is from the authorized user."""
-    return str(update.effective_chat.id) == str(TELEGRAM_CHAT_ID)
+
+def get_user_id(update: Update) -> int:
+    """Get the user's chat ID."""
+    return update.effective_chat.id
+
+
+async def ensure_registered(update: Update) -> int:
+    """Ensure user is registered and return their user_id."""
+    user = update.effective_user
+    user_id = update.effective_chat.id
+    await register_user(
+        chat_id=user_id,
+        username=user.username if user else None,
+        first_name=user.first_name if user else None,
+    )
+    return user_id
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_authorized(update):
-        return
+    user_id = await ensure_registered(update)
 
     await update.message.reply_text(
         "Welcome to ReadWiser!\n\n"
-        "Send me quotes to save them. You can include:\n"
-        "- Just the quote text\n"
-        "- Quote + URL (I'll fetch the article title)\n"
-        "- #tags to categorize\n\n"
-        "Example:\n"
-        '"The best time to plant a tree was 20 years ago" '
-        "https://example.com #wisdom\n\n"
+        "How to save a quote:\n"
+        "1. Share a URL to me first\n"
+        "2. Then send the quote text\n"
+        "(Or send both together)\n\n"
+        "Add #tags to categorize.\n\n"
         "Commands:\n"
         "/random - Get a random quote\n"
         "/last - Show recently saved quotes\n"
         "/digest - Get your digest now\n"
-        "/stats - View your statistics\n\n"
+        "/stats - View your statistics\n"
+        "/cancel - Clear pending URL\n\n"
         "Search:\n"
         "/search <word> - Search in quotes\n"
         "/tag <name> - Find by tag\n"
@@ -65,19 +80,16 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_authorized(update):
-        return
     await start_command(update, context)
 
 
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_authorized(update):
-        return
+    user_id = await ensure_registered(update)
 
-    total = await get_quote_count()
-    this_week = await get_quotes_this_week()
-    favorites = len(await get_favorite_quotes())
-    top_tags = await get_top_tags(5)
+    total = await get_quote_count(user_id)
+    this_week = await get_quotes_this_week(user_id)
+    favorites = len(await get_favorite_quotes(user_id))
+    top_tags = await get_top_tags(user_id, 5)
 
     tags_text = ""
     if top_tags:
@@ -95,10 +107,9 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def random_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_authorized(update):
-        return
+    user_id = await ensure_registered(update)
 
-    quotes = await get_random_quotes(1)
+    quotes = await get_random_quotes(user_id, 1)
     if not quotes:
         await update.message.reply_text("No quotes saved yet. Send me some!")
         return
@@ -108,8 +119,7 @@ async def random_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def last_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_authorized(update):
-        return
+    user_id = await ensure_registered(update)
 
     n = 5
     if context.args:
@@ -118,7 +128,7 @@ async def last_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except ValueError:
             pass
 
-    quotes = await get_last_quotes(n)
+    quotes = await get_last_quotes(user_id, n)
     if not quotes:
         await update.message.reply_text("No quotes saved yet.")
         return
@@ -131,15 +141,14 @@ async def last_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_authorized(update):
-        return
+    user_id = await ensure_registered(update)
 
     if not context.args:
         await update.message.reply_text("Usage: /search <keyword>")
         return
 
     keyword = " ".join(context.args)
-    quotes = await search_quotes(keyword)
+    quotes = await search_quotes(user_id, keyword)
 
     if not quotes:
         await update.message.reply_text(f'No quotes found containing "{keyword}"')
@@ -153,15 +162,14 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def tag_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_authorized(update):
-        return
+    user_id = await ensure_registered(update)
 
     if not context.args:
         await update.message.reply_text("Usage: /tag <tagname>")
         return
 
     tag = context.args[0].lstrip("#")
-    quotes = await get_quotes_by_tag(tag)
+    quotes = await get_quotes_by_tag(user_id, tag)
 
     if not quotes:
         await update.message.reply_text(f'No quotes found with tag #{tag}')
@@ -175,15 +183,14 @@ async def tag_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def source_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_authorized(update):
-        return
+    user_id = await ensure_registered(update)
 
     if not context.args:
         await update.message.reply_text("Usage: /source <domain>")
         return
 
     domain = context.args[0]
-    quotes = await get_quotes_by_source(domain)
+    quotes = await get_quotes_by_source(user_id, domain)
 
     if not quotes:
         await update.message.reply_text(f'No quotes found from {domain}')
@@ -197,8 +204,7 @@ async def source_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def fav_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_authorized(update):
-        return
+    user_id = await ensure_registered(update)
 
     if not context.args:
         await update.message.reply_text("Usage: /fav <quote_id>")
@@ -210,7 +216,7 @@ async def fav_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Invalid quote ID. Use a number.")
         return
 
-    result = await toggle_favorite(quote_id)
+    result = await toggle_favorite(user_id, quote_id)
     if result is None:
         await update.message.reply_text(f"Quote #{quote_id} not found.")
         return
@@ -220,10 +226,9 @@ async def fav_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def favorites_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_authorized(update):
-        return
+    user_id = await ensure_registered(update)
 
-    quotes = await get_favorite_quotes()
+    quotes = await get_favorite_quotes(user_id)
     if not quotes:
         await update.message.reply_text("No favorite quotes yet. Use /fav <id> to add some!")
         return
@@ -239,8 +244,7 @@ async def favorites_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def delete_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_authorized(update):
-        return
+    user_id = await ensure_registered(update)
 
     if not context.args:
         await update.message.reply_text("Usage: /delete <quote_id>")
@@ -252,12 +256,12 @@ async def delete_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Invalid quote ID. Use a number.")
         return
 
-    quote = await get_quote_by_id(quote_id)
+    quote = await get_quote_by_id(user_id, quote_id)
     if not quote:
         await update.message.reply_text(f"Quote #{quote_id} not found.")
         return
 
-    success = await delete_quote(quote_id)
+    success = await delete_quote(user_id, quote_id)
     if success:
         await update.message.reply_text(
             f"Deleted quote #{quote_id}:\n\"{truncate(quote['text'], 50)}\""
@@ -267,11 +271,10 @@ async def delete_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def export_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_authorized(update):
-        return
+    user_id = await ensure_registered(update)
 
-    json_data = await export_all_quotes()
-    count = await get_quote_count()
+    json_data = await export_all_quotes(user_id)
+    count = await get_quote_count(user_id)
 
     if count == 0:
         await update.message.reply_text("No quotes to export.")
@@ -289,22 +292,86 @@ async def export_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def digest_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_authorized(update):
-        return
+    user_id = await ensure_registered(update)
 
-    from src.scheduler import send_digest
-    await send_digest(context.bot)
+    from src.scheduler import send_digest_to_user
+    await send_digest_to_user(context.bot, user_id)
+
+
+def get_pending_url(context: ContextTypes.DEFAULT_TYPE) -> tuple[str, dict] | None:
+    """Get pending URL if it exists and hasn't expired."""
+    pending = context.user_data.get("pending_url")
+    if not pending:
+        return None
+
+    # Check if expired
+    if datetime.now() - pending["timestamp"] > timedelta(minutes=PENDING_URL_TIMEOUT):
+        context.user_data.pop("pending_url", None)
+        return None
+
+    return pending["url"], pending["metadata"]
+
+
+def set_pending_url(context: ContextTypes.DEFAULT_TYPE, url: str, metadata: dict):
+    """Store a pending URL."""
+    context.user_data["pending_url"] = {
+        "url": url,
+        "metadata": metadata,
+        "timestamp": datetime.now(),
+    }
+
+
+def clear_pending_url(context: ContextTypes.DEFAULT_TYPE):
+    """Clear any pending URL."""
+    context.user_data.pop("pending_url", None)
+
+
+async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Cancel pending URL."""
+    await ensure_registered(update)
+
+    if get_pending_url(context):
+        clear_pending_url(context)
+        await update.message.reply_text("Pending URL cleared.")
+    else:
+        await update.message.reply_text("Nothing to cancel.")
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_authorized(update):
-        return
+    user_id = await ensure_registered(update)
 
     text = update.message.text
     if not text:
         return
 
     parsed = parse_message(text)
+
+    # Check if message is ONLY a URL (no quote text)
+    is_url_only = parsed.url and not parsed.quote
+
+    if is_url_only:
+        # Store URL and ask for quote
+        metadata = await fetch_metadata(parsed.url)
+        set_pending_url(context, parsed.url, {
+            "title": metadata.title,
+            "author": metadata.author,
+            "domain": metadata.domain,
+        })
+
+        source_info = ""
+        if metadata.title:
+            source_info = f'\n"{metadata.title}"'
+            if metadata.domain:
+                source_info += f" ({metadata.domain})"
+        elif metadata.domain:
+            source_info = f"\n({metadata.domain})"
+
+        await update.message.reply_text(
+            f"Got the link!{source_info}\n\n"
+            f"Now send me the quote from this article.\n"
+            f"(Link expires in {PENDING_URL_TIMEOUT} min, /cancel to clear)"
+        )
+        return
 
     if not parsed.quote:
         await update.message.reply_text(
@@ -314,22 +381,36 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # Check for duplicates
-    if await is_duplicate(parsed.quote):
+    if await is_duplicate(user_id, parsed.quote):
         await update.message.reply_text("This quote was already saved recently.")
         return
 
-    # Fetch metadata if URL provided
+    # Check for pending URL if no URL in current message
+    url = parsed.url
     title, author, domain = None, None, None
-    if parsed.url:
-        metadata = await fetch_metadata(parsed.url)
+
+    if url:
+        # URL provided in this message - fetch fresh metadata
+        metadata = await fetch_metadata(url)
         title = metadata.title
         author = metadata.author
         domain = metadata.domain
+        clear_pending_url(context)  # Clear any pending URL
+    else:
+        # Check for pending URL
+        pending = get_pending_url(context)
+        if pending:
+            url, metadata = pending
+            title = metadata.get("title")
+            author = metadata.get("author")
+            domain = metadata.get("domain")
+            clear_pending_url(context)
 
     # Save to database
     quote_id = await save_quote(
+        user_id=user_id,
         text=parsed.quote,
-        url=parsed.url,
+        url=url,
         title=title,
         author=author,
         domain=domain,
@@ -403,6 +484,7 @@ def create_bot() -> Application:
     app.add_handler(CommandHandler("delete", delete_command))
     app.add_handler(CommandHandler("export", export_command))
     app.add_handler(CommandHandler("digest", digest_command))
+    app.add_handler(CommandHandler("cancel", cancel_command))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 

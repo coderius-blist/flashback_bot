@@ -10,7 +10,6 @@ DATABASE_PATH = DATA_DIR / "quotes.db"
 
 # Telegram settings
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 # Weekly digest settings
 DIGEST_ENABLED = os.getenv("DIGEST_ENABLED", "true").lower() == "true"
@@ -26,8 +25,6 @@ DAILY_QUOTE_TIME = os.getenv("DAILY_QUOTE_TIME", "09:00")
 def validate_config():
     if not TELEGRAM_BOT_TOKEN:
         raise ValueError("TELEGRAM_BOT_TOKEN is required. Set it in .env file.")
-    if not TELEGRAM_CHAT_ID:
-        raise ValueError("TELEGRAM_CHAT_ID is required. Set it in .env file.")
 
 # Day name to cron day mapping
 DAY_MAP = {
