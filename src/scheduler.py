@@ -1,21 +1,22 @@
 import logging
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from telegram import Bot
 
 from config import (
+    DAILY_QUOTE_ENABLED,
     DIGEST_COUNT,
     DIGEST_ENABLED,
-    DAILY_QUOTE_ENABLED,
-    get_digest_schedule,
     get_daily_quote_schedule,
-)
-from src.database import (
-    get_random_quotes,
-    get_quote_count,
-    get_users_for_digest,
-    get_users_for_daily_quote,
+    get_digest_schedule,
 )
 from src.bot import format_quote
+from src.database import (
+    get_quote_count,
+    get_random_quotes,
+    get_users_for_daily_quote,
+    get_users_for_digest,
+)
 
 logger = logging.getLogger(__name__)
 

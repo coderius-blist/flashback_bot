@@ -1,8 +1,8 @@
 """Tests for the database module."""
 
-import pytest
 import json
-from datetime import datetime, timedelta
+
+import pytest
 
 from src import database
 

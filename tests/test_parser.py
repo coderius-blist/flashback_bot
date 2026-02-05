@@ -1,7 +1,6 @@
 """Tests for the message parser module."""
 
-import pytest
-from src.parser import parse_message, ParsedMessage
+from src.parser import ParsedMessage, parse_message
 
 
 class TestParseMessage:

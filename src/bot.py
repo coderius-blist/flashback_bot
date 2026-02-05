@@ -1,34 +1,35 @@
 from datetime import datetime, timedelta
+
 from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
-    MessageHandler,
     ContextTypes,
+    MessageHandler,
     filters,
 )
 
 from config import TELEGRAM_BOT_TOKEN
 from src.database import (
-    register_user,
-    save_quote,
     delete_quote,
-    get_quote_by_id,
-    get_random_quotes,
+    export_all_quotes,
+    get_favorite_quotes,
     get_last_quotes,
+    get_quote_by_id,
     get_quote_count,
-    get_quotes_this_week,
-    search_quotes,
-    get_quotes_by_tag,
     get_quotes_by_source,
+    get_quotes_by_tag,
+    get_quotes_this_week,
+    get_random_quotes,
     get_top_tags,
     is_duplicate,
+    register_user,
+    save_quote,
+    search_quotes,
     toggle_favorite,
-    get_favorite_quotes,
-    export_all_quotes,
 )
-from src.parser import parse_message
 from src.metadata import fetch_metadata
+from src.parser import parse_message
 
 # How long to remember a pending URL (in minutes)
 PENDING_URL_TIMEOUT = 5
@@ -52,7 +53,7 @@ async def ensure_registered(update: Update) -> int:
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = await ensure_registered(update)
+    await ensure_registered(update)
 
     await update.message.reply_text(
         "Welcome to ReadWiser!\n\n"

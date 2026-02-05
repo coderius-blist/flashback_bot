@@ -1,14 +1,15 @@
 """Tests for the metadata extraction module."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 from bs4 import BeautifulSoup
 
 from src.metadata import (
-    fetch_metadata,
-    _extract_title,
-    _extract_author,
     ArticleMetadata,
+    _extract_author,
+    _extract_title,
+    fetch_metadata,
 )
 
 

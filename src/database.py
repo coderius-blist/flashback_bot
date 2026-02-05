@@ -1,10 +1,12 @@
-import logging
-import aiosqlite
 import json
+import logging
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import wraps
-from typing import Callable, TypeVar, ParamSpec
+from typing import ParamSpec, TypeVar
+
 from config import DATABASE_PATH, DATA_DIR
+import aiosqlite
 
 logger = logging.getLogger(__name__)
 

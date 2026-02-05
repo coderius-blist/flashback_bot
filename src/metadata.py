@@ -1,10 +1,11 @@
+import asyncio
 import logging
 import re
-import httpx
-from bs4 import BeautifulSoup
 from dataclasses import dataclass
 from urllib.parse import urlparse
-import asyncio
+
+import httpx
+from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 

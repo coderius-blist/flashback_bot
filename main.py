@@ -2,8 +2,8 @@ import asyncio
 import logging
 
 from config import validate_config
-from src.database import init_db
 from src.bot import create_bot
+from src.database import init_db
 from src.scheduler import setup_scheduler
 
 logging.basicConfig(
