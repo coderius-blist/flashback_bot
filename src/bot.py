@@ -435,10 +435,44 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(response)
 
 
+def format_relative_time(timestamp_str: str) -> str:
+    """Format a timestamp as relative time (e.g., '2 days ago')."""
+    try:
+        # Parse the timestamp
+        timestamp = datetime.fromisoformat(timestamp_str)
+        now = datetime.now()
+        delta = now - timestamp
+
+        # Format based on time difference
+        if delta.days == 0:
+            hours = int(delta.seconds / 3600)
+            if hours == 0:
+                minutes = int(delta.seconds / 60)
+                if minutes == 0:
+                    return "just now"
+                return f"{minutes}m ago"
+            return f"{hours}h ago"
+        elif delta.days == 1:
+            return "yesterday"
+        elif delta.days < 7:
+            return f"{delta.days}d ago"
+        elif delta.days < 30:
+            weeks = int(delta.days / 7)
+            return f"{weeks}w ago"
+        elif delta.days < 365:
+            months = int(delta.days / 30)
+            return f"{months}mo ago"
+        else:
+            years = int(delta.days / 365)
+            return f"{years}y ago"
+    except (ValueError, TypeError):
+        return ""
+
+
 def format_quote(quote: dict, show_id: bool = False) -> str:
     """Format a quote for display."""
     prefix = f"[#{quote['id']}] " if show_id else ""
-    fav = " *" if quote.get("is_favorite") else ""
+    fav = " ⭐" if quote.get("is_favorite") else ""
     text = f'{prefix}"{quote["text"]}"{fav}'
 
     source_parts = []
@@ -457,6 +491,12 @@ def format_quote(quote: dict, show_id: bool = False) -> str:
 
     if quote.get("tags"):
         text += f"\n  {' '.join(f'#{t}' for t in quote['tags'].split(','))}"
+
+    # Add timestamp
+    if quote.get("created_at"):
+        relative_time = format_relative_time(quote["created_at"])
+        if relative_time:
+            text += f"\n  📅 Saved {relative_time}"
 
     return text
 
