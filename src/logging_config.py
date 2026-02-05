@@ -1,4 +1,4 @@
-"""Logging configuration for ReadWiser."""
+"""Logging configuration for Flashback Bot."""
 
 import logging
 import sys

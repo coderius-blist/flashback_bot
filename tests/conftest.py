@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for ReadWiser tests."""
+"""Shared pytest fixtures for Flashback Bot tests."""
 
 import sys
 from pathlib import Path

@@ -3,14 +3,14 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "read-wiser"
+name = "flashback-bot"
 version = "1.0.0"
 description = "A Telegram bot for saving, organizing, and rediscovering quotes"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-    {name = "ReadWiser Team"}
+    {name = "Flashback Bot Team"}
 ]
 keywords = ["telegram", "bot", "quotes", "spaced-repetition"]
 classifiers = [

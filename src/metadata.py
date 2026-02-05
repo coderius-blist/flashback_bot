@@ -75,7 +75,7 @@ async def fetch_metadata(url: str, retries: int = MAX_RETRIES) -> ArticleMetadat
                 timeout=httpx.Timeout(10.0, connect=5.0)
             ) as client:
                 response = await client.get(url, headers={
-                    "User-Agent": "Mozilla/5.0 (compatible; ReadWiser/1.0)"
+                    "User-Agent": "Mozilla/5.0 (compatible; Flashback Bot/1.0)"
                 })
                 response.raise_for_status()
 

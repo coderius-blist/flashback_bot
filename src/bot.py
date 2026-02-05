@@ -56,7 +56,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await ensure_registered(update)
 
     await update.message.reply_text(
-        "Welcome to ReadWiser!\n\n"
+        "Welcome to Flashback Bot!\n\n"
         "How to save a quote:\n"
         "1. Share a URL to me first\n"
         "2. Then send the quote text\n"
@@ -99,7 +99,7 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     await update.message.reply_text(
-        f"Your ReadWiser Stats\n\n"
+        f"Your Flashback Bot Stats\n\n"
         f"Total quotes: {total}\n"
         f"Added this week: {this_week}\n"
         f"Favorites: {favorites}"

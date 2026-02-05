@@ -1,4 +1,4 @@
-# ReadWiser
+# Flashback Bot
 
 A Telegram bot for saving, organizing, and rediscovering quotes from the web. Collect quotes with automatic metadata extraction, organize them with tags, and receive curated digests.
 
@@ -23,8 +23,8 @@ A Telegram bot for saving, organizing, and rediscovering quotes from the web. Co
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/coderius-blist/read_wiser.git
-   cd read_wiser
+   git clone https://github.com/coderius-blist/flashback_bot.git
+   cd flashback_bot
    ```
 
 2. Install dependencies:
@@ -118,7 +118,7 @@ This project is deployed on [Railway](https://railway.app):
 ## Project Structure
 
 ```
-read_wiser/
+flashback_bot/
 ├── main.py           # Entry point
 ├── config.py         # Configuration
 ├── requirements.txt  # Dependencies
