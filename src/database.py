@@ -6,7 +6,6 @@ from functools import wraps
 from typing import ParamSpec, TypeVar
 
 import aiosqlite
-
 from config import DATABASE_PATH, DATA_DIR
 
 logger = logging.getLogger(__name__)
